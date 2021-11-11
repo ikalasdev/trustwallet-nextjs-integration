@@ -182,10 +182,10 @@
 }
 
 .button {
-  transition: all 0.15s ease-in-out;
   position: relative;
   border: none;
   border-style: none;
+  outline: 0;
   box-sizing: border-box;
   box-shadow: "none";
   border-radius: 8px;
