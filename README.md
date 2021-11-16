@@ -1,10 +1,13 @@
 # Trust Wallet NextJS Integration
 
-### [Live demo](https://trust-wallet-nextjs-integration.netlify.app)
+Integrate [Trust wallet](https://trustwallet.com) into your NextJS app
 
-## Development 
+[Live demo](https://trust-wallet-nextjs-integration.netlify.app)
+
+# Development
 
 Run the development server:
+
 ```bash
 npm run dev
 # or
@@ -13,14 +16,16 @@ yarn dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## Deploy
+# Deploy
 
 First, Build project
+
 ```bash
 npm run build
 ```
 
 Then, run it
+
 ```bash
 npm run start
 ```
