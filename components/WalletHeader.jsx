@@ -9,11 +9,9 @@ export default function WalletHeader({
 
   return (
     <div className={styles.walletHeader}>
-      <p className={`${styles.mb4} ${styles.success}`}>Connected</p>
+      <p className="text-success mb-2">Connected</p>
       <div className={styles.addressInfo}>
-        <p className={`${styles.mb4} ${styles.addressOverflow} ${styles.bold}`}>
-          {addresses[0]}
-        </p>
+        <p className={`${styles.addressOverflow} bold mb-2`}>{addresses[0]}</p>
         <p className={styles.disconnectLabel} onClick={disconnectWallet}>
           Disconnect
         </p>

@@ -7,15 +7,29 @@ body {
   text-align: center;
 }
 
-p {
+p,
+h1,
+h3 {
   margin: 0;
 }
 
-/* a { */
-/*   color: inherit; */
-/*   text-decoration: none; */
-/* } */
-
 * {
   box-sizing: border-box;
+}
+
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.my-8 {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.bold {
+  font-weight: 600;
+}
+
+.text-success {
+  color: green;
 }
