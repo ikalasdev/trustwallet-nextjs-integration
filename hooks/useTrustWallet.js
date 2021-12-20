@@ -1,141 +1,155 @@
-import NodeWalletConnect from "@walletconnect/node";
+import WalletConnectClient from "@walletconnect/client";
 import WalletConnectQRCodeModal from "@walletconnect/qrcode-modal";
-import { useState, useEffect, useRef, useCallback } from "react";
-import { SUPPORTED_CHAINS } from "../constants";
+import { useEffect, useRef, useCallback, useReducer } from "react";
+
+const bridge = "https://bridge.walletconnect.org";
+
+const baseURL = "https://ethereum-api.xyz";
+async function apiGetAccountAssets(address, chainId) {
+  const response = await fetch(
+    `${baseURL}/account-assets?address=${address}&chainId=${chainId}`
+  );
+  const { result } = response;
+  return result;
+}
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "CONNECT":
+      return {
+        ...state,
+        connected: true,
+        accounts: action.accounts,
+        chainId: action.chainId,
+      };
+    case "RESTORE_SESSION":
+      return {
+        ...state,
+        connected: action.connector.connected,
+        accounts: action.connector.accounts,
+        chainId: action.connector.chainId,
+      };
+    case "RESET":
+      return {
+        ...INITIAL_STATE,
+      };
+    default:
+      return state;
+  }
+};
+
+const INITIAL_STATE = {
+  connected: false,
+  accounts: [],
+  chainId: null,
+};
 
 export default function useTrustWallet() {
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const walletRef = useRef();
-  const walletConnector = walletRef.current;
+  const connector = walletRef.current;
 
-  const [connected, setConnected] = useState(false);
-  const [addresses, setAddresses] = useState(null);
-  const [chain, setChain] = useState(null);
+  useEffect(() => {
+    try {
+      initConnector();
+      if (connector?.connected) {
+        dispatch({ type: "RESTORE_SESSION", connector });
+      }
+    } catch (e) {
+      console.log("e", e);
+    }
 
-  const initWallet = () => {
-    if (!walletConnector) {
-      walletConnector = new NodeWalletConnect(
-        {
-          bridge: "https://bridge.walletconnect.org", // Required
-        },
-        {
-          clientMeta: {
-            description: "WalletConnect NodeJS Client",
-            url: "https://nodejs.org/en/",
-            icons: ["https://nodejs.org/static/images/logo.svg"],
-            name: "WalletConnect",
-          },
-        }
-      );
+    return () => {
+      unsubscribeEvents();
+    };
+  }, []);
 
-      // Subscribe to connection events
-      walletConnector.on("connect", onConnect);
-      walletConnector.on("session_update", onSessionUpdate);
-      walletConnector.on("disconnect", onDisconnect);
+  const initConnector = () => {
+    connector = new WalletConnectClient({
+      bridge,
+      qrcodeModal: WalletConnectQRCodeModal,
+    });
+    subscribeToEvents();
+  };
+
+  const subscribeToEvents = () => {
+    if (connector) {
+      connector.on("session_update", onSessionUpdate);
+      connector.on("connect", onConnect);
+      connector.on("disconnect", onDisconnect);
     }
   };
 
-  const onConnect = (error, payload) => {
-    console.log("connect");
-    if (error) {
-      throw error;
+  const unsubscribeEvents = () => {
+    if (connector) {
+      connector.off("session_update", onSessionUpdate);
+      connector.off("connect", onConnect);
+      connector.off("disconnect", onDisconnect);
     }
-
-    WalletConnectQRCodeModal.close(
-      true // isNode = true
-    );
-
-    // Get provided accounts and chainId
-    const { accounts, chainId } = payload.params[0];
-
-    setConnected(true);
-    setAddresses(accounts);
-    const networkDetails = SUPPORTED_CHAINS.find(
-      (el) => el.chain_id === chainId
-    );
-    setChain(networkDetails);
   };
 
-  const onSessionUpdate = (error, payload) => {
-    console.log("session_update");
+  const onConnect = async (error, payload) => {
+    console.log("Event: onConnect");
     if (error) {
+      console.log("error", error);
       throw error;
     }
 
-    // Get updated accounts and chainId
-    const { accounts, chainId } = payload.params[0];
+    const { chainId, accounts } = payload.params[0];
+    dispatch({ type: "CONNECT", accounts, chainId });
+  };
+
+  const onSessionUpdate = async (error, payload) => {
+    console.log("Event: onSessionUpdate");
+
+    if (error) {
+      console.log("error", error);
+      throw error;
+    }
+
+    const { chainId, accounts } = payload.params[0];
+    dispatch({
+      type: "CONNECT",
+      accounts,
+      chainId,
+    });
   };
 
   const onDisconnect = (error, payload) => {
-    console.log("on disconnect");
+    console.log("Event: onDisconnect");
     if (error) {
+      console.log("error", error);
       throw error;
     }
 
-    // Delete walletConnector
-    setAddresses(null);
-    setConnected(false);
-    setChain(null);
+    dispatch({ type: "RESET" });
   };
 
-  useEffect(() => {
-    initWallet();
-
-    console.log("walletConnector", walletConnector);
-    if (walletConnector.connected === true) {
-      setConnected(true);
-      setAddresses(walletConnector.accounts);
-      const networkDetails = SUPPORTED_CHAINS.find(
-        (chain) => chain.chain_id === walletConnector.chainId
-      );
-      setChain(networkDetails);
+  const connectWallet = useCallback(async () => {
+    try {
+      initConnector();
+      await connector.connect();
+    } catch (e) {
+      console.log("e", e);
     }
   }, []);
 
-  const disconnectWallet = useCallback(() => {
-    if (walletConnector) {
-      walletConnector.killSession().then(() => {
-        console.log("Session killled");
+  const disconnectWallet = useCallback(async () => {
+    if (connector) await connector.killSession();
+  }, []);
+
+  const updateChain = useCallback((newChainId) => {
+    if (connector) {
+      connector.updateSession({
+        chainId: newChainId,
+        accounts: [connector.accounts[0]],
       });
     }
-  }, [walletConnector]);
-
-  const connectWallet = useCallback(() => {
-    initWallet();
-
-    // Check if connection is already established
-    if (!walletConnector.connected) {
-      // create new session
-      walletConnector.createSession().then(() => {
-        // get uri for QR Code modal
-        const uri = walletConnector.uri;
-        // display QR Code modal
-        WalletConnectQRCodeModal.open(
-          uri,
-          () => {
-            console.log("QR Code Modal closed");
-          },
-          true // isNode = true
-        );
-      });
-    }
-  }, [walletConnector]);
-
-  // Draft transaction
-  const tx = {
-    from: "0xbc28Ea04101F03aA7a94C1379bc3AB32E65e62d3", // Required
-    to: "0x89D24A7b4cCB1b6fAA2625Fe562bDd9A23260359", // Required (for non contract deployments)
-    data: "0x", // Required
-    gasPrice: "0x02540be400", // Optional
-    gas: "0x9c40", // Optional
-    value: "0x00", // Optional
-    nonce: "0x0114", // Optional
-  };
+  }, []);
 
   const sendEthTransaction = (receiver = tx) => {
-    console.log("sendEthTransaction");
-
     // Send transaction
-    // walletConnector
+    // connector
     //   .sendTransaction(receiver)
     //   .then((result) => {
     //     // Returns transaction id (hash)
@@ -148,11 +162,12 @@ export default function useTrustWallet() {
   };
 
   return {
-    connected,
-    addresses,
-    chain,
+    connected: state.connected,
+    addresses: state.accounts,
+    chainId: state.chainId,
     connectWallet,
     disconnectWallet,
+    updateChain,
     sendEthTransaction,
   };
 }

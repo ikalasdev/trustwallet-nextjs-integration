@@ -9,9 +9,10 @@ export default function TrustWallet() {
   const {
     connected,
     addresses,
-    chain,
+    chainId,
     connectWallet,
     disconnectWallet,
+    updateChain,
     sendEthTransaction,
   } = useTrustWallet();
 
@@ -22,7 +23,7 @@ export default function TrustWallet() {
         addresses={addresses}
         disconnectWallet={disconnectWallet}
       />
-      <Chain chain={chain} />
+      <Chain chainId={chainId} updateChain={updateChain} />
       <Actions connected={connected} sendEthTransaction={sendEthTransaction} />
 
       {connected ? (
